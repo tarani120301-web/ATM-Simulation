@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>My ATM</title>
+<link href="https://fonts.googleapis.com/css2?family=Chivo:wght@400;600;800&family=Chivo+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--page:#e7ece9;--body:#1d2b27;--bezel:#2c3d38;--ink:#14201c;--screen:#07241f;--glow:#ffc857;--text:#d9f2e6;--dim:#7fa89a;--ok:#6ee7a8;--err:#ff7a6b;--key:#16332c;--keyh:#1f453b;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--page:#0c1210;--bezel:#24332f}}
+:root[data-theme="dark"]{--page:#0c1210;--bezel:#24332f}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:var(--page);color:var(--ink);font-family:"Chivo",system-ui,sans-serif;display:flex;align-items:center;justify-content:center;padding:20px}
+.atm{width:100%;max-width:520px;background:var(--bezel);border-radius:22px;padding:18px;box-shadow:0 24px 50px rgba(0,0,0,.28)}
+.slot{height:8px;width:55%;margin:0 auto 14px;background:#0b1512;border-radius:4px;box-shadow:inset 0 2px 3px #000}
+.screen{background:var(--screen);border-radius:12px;padding:22px 22px 18px;min-height:380px;color:var(--text);display:flex;flex-direction:column;border:3px solid #0b1512}
+h1{font-size:1.05rem;font-weight:800;margin:0 0 4px;color:var(--glow);letter-spacing:.01em}
+.sub{color:var(--dim);font-size:.9rem;margin:0 0 18px}
+.opts{display:flex;flex-direction:column;gap:10px;margin-top:auto}
+button{font:inherit;cursor:pointer;border:1px solid #2c5a4d;background:var(--key);color:var(--text);padding:13px 16px;border-radius:8px;text-align:left;display:flex;justify-content:space-between;align-items:center;transition:background .12s}
+button:hover{background:var(--keyh)}
+button:focus-visible,input:focus-visible{outline:3px solid var(--glow);outline-offset:2px}
+button.go{background:var(--glow);color:#2a2000;border-color:var(--glow);font-weight:600}
+button.go:hover{background:#ffd37a}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.balance{font-family:"Chivo Mono",ui-monospace,monospace;font-size:2.1rem;font-weight:600;margin:6px 0 4px;color:var(--text)}
+.msg{font-size:.95rem;padding:12px 14px;border-radius:8px;margin:6px 0 14px;border-left:4px solid var(--dim);background:rgba(255,255,255,.05);line-height:1.5}
+.msg.ok{border-color:var(--ok)}.msg.err{border-color:var(--err)}
+label{font-size:.9rem;color:var(--dim);display:block;margin-bottom:8px}
+input{width:100%;font:inherit;font-family:"Chivo Mono",ui-monospace,monospace;font-size:1.5rem;padding:12px 14px;border-radius:8px;border:1px solid #2c5a4d;background:#041a16;color:var(--text);margin-bottom:12px}
+.quick{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.quick button{padding:8px 12px;font-size:.85rem;font-family:"Chivo Mono",ui-monospace,monospace}
+.foot{text-align:center;color:var(--dim);font-size:.78rem;margin-top:12px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<main class="atm">
+  <div class="slot" aria-hidden="true"></div>
+  <section class="screen" id="screen" aria-live="polite"></section>
+  <p class="foot">Practice ATM · no real money involved</p>
+</main>
+<script>
+var bal = 10000, screen = document.getElementById('screen');
+var fmt = function(n){ return '₹' + n.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}); };
+
+function el(tag, attrs, kids){
+  var e = document.createElement(tag);
+  for (var k in (attrs||{})) {
+    if (k === 'text') e.textContent = attrs[k];
+    else if (k === 'on') e.addEventListener('click', attrs[k]);
+    else e.setAttribute(k, attrs[k]);
+  }
+  (kids||[]).forEach(function(c){ e.appendChild(c); });
+  return e;
+}
+function show(nodes){ screen.innerHTML=''; nodes.forEach(function(n){ screen.appendChild(n); }); var f = screen.querySelector('input,button'); if (f) f.focus(); }
+
+function menu(){
+  show([
+    el('h1',{text:'Welcome to my ATM'}),
+    el('p',{class:'sub',text:'Enter your choice'}),
+    el('div',{class:'opts'},[
+      el('button',{text:'1. Show balance',on:showBalance}),
+      el('button',{text:'2. Deposit',on:function(){ amountScreen('Deposit'); }}),
+      el('button',{text:'3. Withdraw',on:function(){ amountScreen('Withdraw'); }}),
+      el('button',{text:'Exit',on:bye})
+    ])
+  ]);
+}
+
+function result(title, kind, text, showBal){
+  var kids = [el('h1',{text:title})];
+  if (showBal) {
+    kids.push(el('p',{class:'sub',text:'Your balance is'}));
+    kids.push(el('div',{class:'balance',text:fmt(bal)}));
+  }
+  if (text) kids.push(el('div',{class:'msg '+kind,text:text}));
+  kids.push(el('p',{class:'sub',style:'margin-top:auto',text:'Do you want another transaction?'}));
+  kids.push(el('div',{class:'row2'},[
+    el('button',{class:'go',text:'Yes, continue',on:menu}),
+    el('button',{text:'No, exit',on:bye})
+  ]));
+  show(kids);
+}
+
+function showBalance(){ result('Balance','',null,true); }
+
+function amountScreen(type, error){
+  var input = el('input',{type:'number',inputmode:'decimal',min:'0',step:'0.01',id:'amt',placeholder:'0.00','aria-label':'Amount'});
+  var quick = el('div',{class:'quick'},[500,1000,2000,5000].map(function(v){
+    return el('button',{text:'₹'+v,type:'button',on:function(){ input.value = v; input.focus(); }});
+  }));
+  function submit(){ process(type, parseFloat(input.value)); }
+  input.addEventListener('keydown',function(e){ if (e.key==='Enter') submit(); });
+  var kids = [
+    el('h1',{text: type==='Deposit' ? 'Enter deposit amount' : 'Enter your withdraw amount'}),
+    el('p',{class:'sub',text:'Available balance: '+fmt(bal)})
+  ];
+  if (error) kids.push(el('div',{class:'msg err',text:error}));
+  kids.push(el('label',{for:'amt',text:'Amount in rupees'}), input, quick,
+    el('div',{class:'row2',style:'margin-top:auto'},[
+      el('button',{class:'go',text:type,on:submit}),
+      el('button',{text:'Cancel',on:menu})
+    ]));
+  show(kids);
+}
+
+function process(type, amt){
+  if (type === 'Deposit') {
+    if (amt > 0) { bal += amt; result('Deposit successful','ok','Deposit successful.',true); }
+    else amountScreen(type,'Please enter valid amount');
+  } else {
+    if (amt > 0 && amt <= bal) { bal -= amt; result('Withdraw successful','ok','Withdraw successful.',true); }
+    else amountScreen(type,'Unable to process your request');
+  }
+}
+
+function bye(){
+  show([
+    el('h1',{text:'Thank you for visiting.'}),
+    el('p',{class:'sub',text:'Your final balance is '+fmt(bal)+'.'}),
+    el('div',{class:'opts'},[ el('button',{class:'go',text:'Start a new session',on:function(){ bal = 10000; menu(); }}) ])
+  ]);
+}
+menu();
+</script>
+</body>
+</html>
